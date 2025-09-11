@@ -1,0 +1,47 @@
+<model>
+    <mount>//OPNsense/helloworld</mount>
+    <description>
+        the OPNsense "Hello World" application
+    </description>
+    <items>
+        <!-- container -->
+        <general>
+            <!-- fields -->
+            <Enabled type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </Enabled>
+            <SMTPHost type="NetworkField">
+                <Default>smtp.gmail.com</Default>
+                <Required>Y</Required>
+            </SMTPHost>
+            <SMTPPort type="IntegerField">
+                <Default>587</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>65535</MaximumValue>
+                <Required>Y</Required>
+            </SMTPPort>
+            <SMTPUsername type="EmailField">
+                <Required>Y</Required>
+            </SMTPUsername>
+            <SMTPPassword type="TextField">
+                <Required>Y</Required>
+            </SMTPPassword>
+            <FromEmail type="EmailField">
+                <Default>sample@example.com</Default>
+                <Required>Y</Required>
+            </FromEmail>
+            <ToEmail type="EmailField">
+                <Required>Y</Required>
+                <ValidationMessage>please specify a valid email address</ValidationMessage>
+            </ToEmail>
+            <Subject type="TextField">
+                <Default>Test Email from OPNsense</Default>
+                <Required>Y</Required>
+            </Subject>
+            <Description type="TextField">
+                <Required>Y</Required>
+            </Description>
+        </general>
+    </items>
+</model>

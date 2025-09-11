@@ -1,0 +1,59 @@
+<form>
+    <field>
+        <id>helloworld.general.Enabled</id>
+        <label>enabled</label>
+        <type>checkbox</type>
+        <help>Enable this feature</help>
+    </field>
+    <field>
+        <id>helloworld.general.SMTPHost</id>
+        <label>SMTP Host</label>
+        <type>text</type>
+        <help><![CDATA[SMTP server hostname (e.g. smtp.gmail.com)]]></help>
+        <hint>Gmail users should use smtp.gmail.com</hint>
+    </field>
+    <field>
+        <id>helloworld.general.SMTPPort</id>
+        <label>SMTP Port</label>
+        <type>text</type>
+        <help><![CDATA[SMTP server port (587 for TLS, 465 for SSL)]]></help>
+        <hint>587 is recommended for Gmail</hint>
+    </field>
+    <field>
+        <id>helloworld.general.SMTPUsername</id>
+        <label>SMTP Username</label>
+        <type>text</type>
+        <help><![CDATA[Your Gmail email address]]></help>
+    </field>
+    <field>
+        <id>helloworld.general.SMTPPassword</id>
+        <label>SMTP Password</label>
+        <type>password</type>
+        <help><![CDATA[Gmail App Password (not your regular password)]]></help>
+        <hint>Generate an App Password in your Google Account settings</hint>
+    </field>
+    <field>
+        <id>helloworld.general.FromEmail</id>
+        <label>Email (from)</label>
+        <type>text</type>
+        <help><![CDATA[Sender email address]]></help>
+    </field>
+    <field>
+        <id>helloworld.general.ToEmail</id>
+        <label>Email (to)</label>
+        <type>text</type>
+        <help><![CDATA[Recipient email address]]></help>
+    </field>
+    <field>
+        <id>helloworld.general.Subject</id>
+        <label>Subject</label>
+        <type>text</type>
+        <help><![CDATA[Email subject line]]></help>
+    </field>
+    <field>
+        <id>helloworld.general.Description</id>
+        <label>Description</label>
+        <type>text</type>
+        <help><![CDATA[Email message content]]></help>
+    </field>
+</form>
