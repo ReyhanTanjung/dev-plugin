@@ -1,0 +1,35 @@
+<form>
+    <field>
+        <id>devicemonitor.general.Enabled</id>
+        <label>enabled</label>
+        <type>checkbox</type>
+        <help>Enable device monitoring service</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.APIEndpoint</id>
+        <label>API Endpoint</label>
+        <type>text</type>
+        <help><![CDATA[Full URL endpoint for telemetry data submission]]></help>
+        <hint>Example: http://20.196.153.170:3000/api/iot/DEVICE_1/info</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.AuthToken</id>
+        <label>Authorization Token</label>
+        <type>password</type>
+        <help><![CDATA[Bearer token for API authentication]]></help>
+    </field>
+    <field>
+        <id>devicemonitor.general.Interval</id>
+        <label>Interval (seconds)</label>
+        <type>text</type>
+        <help><![CDATA[How often to send telemetry data in seconds]]></help>
+        <hint>Default is 10 seconds</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.DeviceID</id>
+        <label>Device ID</label>
+        <type>text</type>
+        <help><![CDATA[Unique identifier for this device]]></help>
+        <hint>This will be used in the API endpoint path</hint>
+    </field>
+</form>

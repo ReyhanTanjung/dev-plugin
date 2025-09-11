@@ -1,0 +1,7 @@
+<menu>
+    <Services>
+        <DeviceMonitor cssClass="fa fa-heartbeat" url="/ui/devicemonitor/">
+            <Index VisibleName="General" url="/ui/devicemonitor/index" cssClass="fa fa-cogs" />
+        </DeviceMonitor>
+    </Services>
+</menu>

@@ -1,0 +1,33 @@
+<model>
+    <mount>//OPNsense/devicemonitor</mount>
+    <description>
+        OPNsense Device Monitor for telemetry data collection
+    </description>
+    <items>
+        <general>
+            <Enabled type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </Enabled>
+            <APIEndpoint type="UrlField">
+                <Default>http://20.196.153.170:3000/api/iot/DEVICE_1/info</Default>
+                <Required>Y</Required>
+            </APIEndpoint>
+            <AuthToken type="TextField">
+                <Default>TOKEN_RAHASIA</Default>
+                <Required>Y</Required>
+            </AuthToken>
+            <Interval type="IntegerField">
+                <Default>10</Default>
+                <MinimumValue>1</MinimumValue>
+                <MaximumValue>3600</MaximumValue>
+                <Required>Y</Required>
+                <ValidationMessage>Interval must be between 1 and 3600 seconds</ValidationMessage>
+            </Interval>
+            <DeviceID type="TextField">
+                <Default>DEVICE_1</Default>
+                <Required>Y</Required>
+            </DeviceID>
+        </general>
+    </items>
+</model>

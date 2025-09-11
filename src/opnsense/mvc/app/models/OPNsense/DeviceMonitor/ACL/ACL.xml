@@ -1,0 +1,16 @@
+<acl>
+    <page-user-devicemonitor-index>
+        <name>WebCfg - Services: Device Monitor</name>
+        <description>Allow access to the 'Device Monitor' WebGUI page.</description>
+        <patterns>
+            <pattern>ui/devicemonitor/*</pattern>
+        </patterns>
+    </page-user-devicemonitor-index>
+    <page-user-devicemonitor-api>
+        <name>WebCfg - Services: Device Monitor API</name>
+        <description>Allow access to the 'Device Monitor' API.</description>
+        <patterns>
+            <pattern>api/devicemonitor/*</pattern>
+        </patterns>
+    </page-user-devicemonitor-api>
+</acl>
