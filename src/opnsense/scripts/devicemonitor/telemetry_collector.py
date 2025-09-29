@@ -91,6 +91,11 @@ class DeviceTelemetryCollector:
         if config_file is None:
             # Allow override via environment variable for testing
             config_file = os.environ.get('DEVICEMONITOR_CONFIG', '/usr/local/etc/devicemonitor/devicemonitor.conf')
+
+            # If production config doesn't exist, fall back to test config
+            if not os.path.exists(config_file) and os.path.exists('/tmp/devicemonitor_test/devicemonitor.conf'):
+                config_file = '/tmp/devicemonitor_test/devicemonitor.conf'
+                logger.warning(f"Production config not found, using fallback: {config_file}")
         self.config_file = config_file
         self.config = None
         self.running = True
