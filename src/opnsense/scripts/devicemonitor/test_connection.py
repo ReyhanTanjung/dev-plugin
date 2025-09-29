@@ -27,72 +27,136 @@
 
     --------------------------------------------------------------------------------------
 
-    Test connection to the telemetry endpoint
+    Test connection to the MQTT broker for telemetry
 """
 
 import os
+import sys
 import json
-import requests
+import time
 from datetime import datetime
 from configparser import ConfigParser
 
+# Add current directory to path for paho import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from paho.mqtt import client as mqtt_client
+
 device_monitor_config = '/usr/local/etc/devicemonitor/devicemonitor.conf'
+
+class MQTTConnectionTester:
+    def __init__(self):
+        self.connected = False
+        self.published = False
+        self.error_message = None
+
+    def on_connect(self, client, userdata, flags, rc):
+        if rc == 0:
+            self.connected = True
+        else:
+            self.error_message = f"Connection failed with result code {rc}"
+
+    def on_publish(self, client, userdata, mid):
+        self.published = True
+
+    def test_mqtt_connection(self, broker, port, username, password, topic, device_id):
+        try:
+            # Create test payload
+            test_data = {
+                "timestamp": datetime.utcnow().isoformat() + 'Z',
+                "device_id": device_id,
+                "test": True,
+                "message": "MQTT connection test from OPNsense Device Monitor"
+            }
+
+            # Create MQTT client
+            client_id = f"opnsense-test-{device_id}-{int(time.time())}"
+            client = mqtt_client.Client(client_id)
+
+            # Set authentication if provided
+            if username and password:
+                client.username_pw_set(username, password)
+
+            # Set callbacks
+            client.on_connect = self.on_connect
+            client.on_publish = self.on_publish
+
+            # Connect to broker
+            client.connect(broker, port, 60)
+            client.loop_start()
+
+            # Wait for connection (max 10 seconds)
+            timeout = 10
+            while not self.connected and timeout > 0 and not self.error_message:
+                time.sleep(0.5)
+                timeout -= 0.5
+
+            if not self.connected:
+                if self.error_message:
+                    return {"success": False, "message": self.error_message}
+                else:
+                    return {"success": False, "message": "Connection timeout - unable to connect to MQTT broker"}
+
+            # Publish test message
+            payload = json.dumps(test_data, default=str)
+            result = client.publish(topic, payload, qos=1)
+
+            # Wait for publish confirmation
+            timeout = 5
+            while not self.published and timeout > 0:
+                time.sleep(0.1)
+                timeout -= 0.1
+
+            client.loop_stop()
+            client.disconnect()
+
+            if self.published:
+                return {
+                    "success": True,
+                    "message": f"MQTT connection test successful! Connected to {broker}:{port} and published to topic '{topic}'"
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Connected to MQTT broker but failed to publish message to topic '{topic}'"
+                }
+
+        except Exception as e:
+            return {"success": False, "message": f"MQTT connection test failed: {str(e)}"}
 
 result = {}
 
 if os.path.exists(device_monitor_config):
     cnf = ConfigParser()
     cnf.read(device_monitor_config)
-    
+
     if cnf.has_section('general'):
         try:
             # Get configuration values
-            endpoint = cnf.get('general', 'APIEndpoint')
-            token = cnf.get('general', 'AuthToken')
-            device_id = cnf.get('general', 'DeviceID', fallback='DEVICE_1')
-            
-            # Create test payload
-            test_data = {
-                "timestamp": datetime.utcnow().isoformat() + 'Z',
-                "device_id": device_id,
-                "test": True,
-                "message": "Connection test from OPNsense Device Monitor"
-            }
-            
-            headers = {
-                'Authorization': f'Bearer {token}',
-                'Content-Type': 'application/json',
-                'User-Agent': 'OPNsense-DeviceMonitor-Test/1.0'
-            }
-            
-            # Send test request
-            response = requests.post(
-                endpoint,
-                json=test_data,
-                headers=headers,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                result['message'] = f'Connection test successful! HTTP {response.status_code}'
-                result['response'] = response.text[:200] if response.text else 'No response body'
+            broker = cnf.get('general', 'MQTTBroker')
+            port = cnf.getint('general', 'MQTTPort', fallback=1883)
+            username = cnf.get('general', 'MQTTUsername', fallback='')
+            password = cnf.get('general', 'MQTTPassword', fallback='')
+            topic = cnf.get('general', 'MQTTTopic', fallback='opnsense/telemetry')
+            device_id = cnf.get('general', 'DeviceID', fallback='opnsense-device')
+
+            # Test MQTT connection
+            tester = MQTTConnectionTester()
+            test_result = tester.test_mqtt_connection(broker, port, username, password, topic, device_id)
+
+            result['message'] = test_result['message']
+            if test_result['success']:
+                result['status'] = 'success'
             else:
-                result['message'] = f'Connection test failed: HTTP {response.status_code}'
-                result['response'] = response.text[:200] if response.text else 'No response body'
-                
-        except requests.exceptions.ConnectionError as error:
-            result['message'] = f'Connection error: Unable to reach endpoint - {str(error)}'
-        except requests.exceptions.Timeout as error:
-            result['message'] = f'Connection timeout: Request took too long - {str(error)}'
-        except requests.exceptions.HTTPError as error:
-            result['message'] = f'HTTP error: {str(error)}'
-        except requests.exceptions.RequestException as error:
-            result['message'] = f'Request error: {str(error)}'
+                result['status'] = 'error'
+
         except Exception as error:
-            result['message'] = f'Unexpected error: {str(error)}'
+            result['message'] = f'Configuration error: {str(error)}'
+            result['status'] = 'error'
     else:
         result['message'] = 'Configuration section [general] not found'
+        result['status'] = 'error'
 else:
     result['message'] = f'Configuration file not found: {device_monitor_config}'
+    result['status'] = 'error'
 
 print(json.dumps(result))

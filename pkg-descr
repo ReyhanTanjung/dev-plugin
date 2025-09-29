@@ -1,0 +1,7 @@
+The DeviceMonitor plugin provides comprehensive telemetry monitoring
+capabilities for OPNsense systems. It collects and reports system
+metrics including CPU usage, memory consumption, disk utilization,
+and network statistics to help administrators monitor device health
+and performance.
+
+WWW: https://docs.opnsense.org/

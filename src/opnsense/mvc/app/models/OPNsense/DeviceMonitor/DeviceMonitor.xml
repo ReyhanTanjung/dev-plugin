@@ -1,33 +1,64 @@
 <model>
     <mount>//OPNsense/devicemonitor</mount>
     <description>
-        OPNsense Device Monitor for telemetry data collection
+        OPNsense Device Telemetry Monitor - MQTT-based device monitoring and telemetry
     </description>
     <items>
         <general>
             <Enabled type="BooleanField">
-                <Default>1</Default>
+                <Default>0</Default>
                 <Required>Y</Required>
             </Enabled>
-            <APIEndpoint type="UrlField">
-                <Default>http://20.196.153.170:3000/api/iot/DEVICE_1/info</Default>
+            <MQTTBroker type="NetworkField">
+                <Default>localhost</Default>
                 <Required>Y</Required>
-            </APIEndpoint>
-            <AuthToken type="TextField">
-                <Default>TOKEN_RAHASIA</Default>
-                <Required>Y</Required>
-            </AuthToken>
-            <Interval type="IntegerField">
-                <Default>10</Default>
+            </MQTTBroker>
+            <MQTTPort type="IntegerField">
+                <Default>1883</Default>
                 <MinimumValue>1</MinimumValue>
+                <MaximumValue>65535</MaximumValue>
+                <Required>Y</Required>
+            </MQTTPort>
+            <MQTTUsername type="TextField">
+                <Required>N</Required>
+            </MQTTUsername>
+            <MQTTPassword type="TextField">
+                <Required>N</Required>
+            </MQTTPassword>
+            <MQTTTopic type="TextField">
+                <Default>opnsense/telemetry</Default>
+                <Required>Y</Required>
+            </MQTTTopic>
+            <TelemetryInterval type="IntegerField">
+                <Default>60</Default>
+                <MinimumValue>10</MinimumValue>
                 <MaximumValue>3600</MaximumValue>
                 <Required>Y</Required>
-                <ValidationMessage>Interval must be between 1 and 3600 seconds</ValidationMessage>
-            </Interval>
+            </TelemetryInterval>
             <DeviceID type="TextField">
-                <Default>DEVICE_1</Default>
+                <Default>opnsense-device</Default>
                 <Required>Y</Required>
             </DeviceID>
+            <CollectCPU type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </CollectCPU>
+            <CollectMemory type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </CollectMemory>
+            <CollectNetwork type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </CollectNetwork>
+            <CollectDisk type="BooleanField">
+                <Default>1</Default>
+                <Required>Y</Required>
+            </CollectDisk>
+            <CollectTemperature type="BooleanField">
+                <Default>0</Default>
+                <Required>Y</Required>
+            </CollectTemperature>
         </general>
     </items>
 </model>
