@@ -66,27 +66,44 @@ def start_service():
     if pid and is_running(pid):
         print("Service is already running")
         return "already_running"
-    
+
     try:
+        # Check if service script exists
+        if not os.path.exists(SERVICE_SCRIPT):
+            print(f"Service script not found: {SERVICE_SCRIPT}")
+            return "script_not_found"
+
         # Start the service as a daemon
+        print(f"Starting service: {SERVICE_SCRIPT}")
+
+        # Capture stderr to get startup errors
         process = subprocess.Popen([
             'nohup', 'python3', SERVICE_SCRIPT
-        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+
         # Write PID file
         with open(PIDFILE, 'w') as f:
             f.write(str(process.pid))
-        
-        # Give it a moment to start
-        time.sleep(2)
-        
+
+        # Give it a moment to start and check for immediate failures
+        time.sleep(3)
+
+        # Check if process is still running
         if is_running(process.pid):
             print("Service started successfully")
             return "started"
         else:
-            print("Failed to start service")
+            # Try to get error output
+            try:
+                _, stderr_output = process.communicate(timeout=1)
+                if stderr_output:
+                    print(f"Service failed to start: {stderr_output.strip()}")
+                else:
+                    print("Service failed to start (no error output)")
+            except subprocess.TimeoutExpired:
+                print("Service failed to start")
             return "failed"
-            
+
     except Exception as e:
         print(f"Error starting service: {e}")
         return "error"

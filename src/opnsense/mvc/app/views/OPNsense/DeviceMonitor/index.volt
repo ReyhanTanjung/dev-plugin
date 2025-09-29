@@ -36,11 +36,28 @@ POSSIBILITY OF SUCH DAMAGE.
         // link save button to API set action
         $("#saveAct").click(function(){
             saveFormToEndpoint("/api/devicemonitor/settings/set",'frm_GeneralSettings',function(){
+                // Show success notification
+                $("#responseMsg").removeClass("hidden").html('<span class="text-success">Configuration saved successfully!</span>');
+
                 // action to run after successful save, for example reconfigure service.
                 ajaxCall(url="/api/devicemonitor/service/reload", sendData={},callback=function(data,status) {
                     // action to run after reload
                     updateServiceStatus();
+
+                    // Show reload status
+                    if (data && data.status === 'ok') {
+                        $("#responseMsg").html('<span class="text-success">Configuration saved and reloaded successfully!</span>');
+                    } else {
+                        $("#responseMsg").html('<span class="text-warning">Configuration saved but reload failed. Status: ' + (data.status || 'unknown') + '</span>');
+                    }
                 });
+            }, function(data, status) {
+                // Error callback - show error message
+                var errorMsg = 'Failed to save configuration';
+                if (data && data.responseJSON && data.responseJSON.message) {
+                    errorMsg += ': ' + data.responseJSON.message;
+                }
+                $("#responseMsg").removeClass("hidden").html('<span class="text-danger">' + errorMsg + '</span>');
             });
         });
 
@@ -54,22 +71,49 @@ POSSIBILITY OF SUCH DAMAGE.
         // Service control buttons
         $("#startAct").SimpleActionButton({
             onAction: function(data) {
-                $("#responseMsg").removeClass("hidden").html("Service start: " + data['status']);
+                if (data && data.status) {
+                    var statusMsg = "Service start: " + data.status;
+                    var statusClass = data.status.includes('started') || data.status.includes('already_running') ? 'text-success' : 'text-warning';
+                    $("#responseMsg").removeClass("hidden").html('<span class="' + statusClass + '">' + statusMsg + '</span>');
+                } else {
+                    $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service start failed - no response</span>');
+                }
                 updateServiceStatus();
+            },
+            onError: function(data) {
+                $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service start failed: ' + (data.responseText || 'Unknown error') + '</span>');
             }
         });
 
         $("#stopAct").SimpleActionButton({
             onAction: function(data) {
-                $("#responseMsg").removeClass("hidden").html("Service stop: " + data['status']);
+                if (data && data.status) {
+                    var statusMsg = "Service stop: " + data.status;
+                    var statusClass = data.status.includes('stopped') || data.status.includes('not_running') ? 'text-success' : 'text-warning';
+                    $("#responseMsg").removeClass("hidden").html('<span class="' + statusClass + '">' + statusMsg + '</span>');
+                } else {
+                    $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service stop failed - no response</span>');
+                }
                 updateServiceStatus();
+            },
+            onError: function(data) {
+                $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service stop failed: ' + (data.responseText || 'Unknown error') + '</span>');
             }
         });
 
         $("#restartAct").SimpleActionButton({
             onAction: function(data) {
-                $("#responseMsg").removeClass("hidden").html("Service restart: " + data['status']);
+                if (data && data.status) {
+                    var statusMsg = "Service restart: " + data.status;
+                    var statusClass = data.status.includes('started') ? 'text-success' : 'text-warning';
+                    $("#responseMsg").removeClass("hidden").html('<span class="' + statusClass + '">' + statusMsg + '</span>');
+                } else {
+                    $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service restart failed - no response</span>');
+                }
                 updateServiceStatus();
+            },
+            onError: function(data) {
+                $("#responseMsg").removeClass("hidden").html('<span class="text-danger">Service restart failed: ' + (data.responseText || 'Unknown error') + '</span>');
             }
         });
 

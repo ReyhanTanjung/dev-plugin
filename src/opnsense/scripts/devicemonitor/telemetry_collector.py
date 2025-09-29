@@ -46,16 +46,31 @@ from paho.mqtt import client as mqtt_client
 # Configure logging
 log_handlers = [logging.StreamHandler()]
 
-# Try to add file handler, but continue if we don't have permissions
-try:
-    log_handlers.append(logging.FileHandler('/var/log/devicemonitor.log'))
-except PermissionError:
+# Try to add file handler, with multiple fallback locations
+log_file_paths = [
+    '/var/log/devicemonitor.log',
+    '/tmp/devicemonitor.log',
+    os.path.expanduser('~/devicemonitor.log'),
+    './devicemonitor.log'
+]
+
+log_file_used = None
+for log_path in log_file_paths:
     try:
-        # Try user's home directory instead
-        log_file = os.path.expanduser('~/devicemonitor.log')
-        log_handlers.append(logging.FileHandler(log_file))
-    except:
-        pass  # Continue with just console logging
+        # Create directory if it doesn't exist
+        log_dir = os.path.dirname(log_path)
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+
+        # Test if we can write to the file
+        test_handler = logging.FileHandler(log_path)
+        test_handler.close()
+
+        log_handlers.append(logging.FileHandler(log_path))
+        log_file_used = log_path
+        break
+    except (PermissionError, OSError):
+        continue
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,6 +79,12 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+# Log the logging configuration
+if log_file_used:
+    logger.info(f"Logging to file: {log_file_used}")
+else:
+    logger.warning("File logging disabled - logging to console only")
 
 class DeviceTelemetryCollector:
     def __init__(self, config_file=None):
