@@ -44,19 +44,32 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paho.mqtt import client as mqtt_client
 
 # Configure logging
+log_handlers = [logging.StreamHandler()]
+
+# Try to add file handler, but continue if we don't have permissions
+try:
+    log_handlers.append(logging.FileHandler('/var/log/devicemonitor.log'))
+except PermissionError:
+    try:
+        # Try user's home directory instead
+        log_file = os.path.expanduser('~/devicemonitor.log')
+        log_handlers.append(logging.FileHandler(log_file))
+    except:
+        pass  # Continue with just console logging
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/var/log/devicemonitor.log'),
-        logging.StreamHandler()
-    ]
+    handlers=log_handlers
 )
 
 logger = logging.getLogger(__name__)
 
 class DeviceTelemetryCollector:
-    def __init__(self, config_file='/usr/local/etc/devicemonitor/devicemonitor.conf'):
+    def __init__(self, config_file=None):
+        if config_file is None:
+            # Allow override via environment variable for testing
+            config_file = os.environ.get('DEVICEMONITOR_CONFIG', '/usr/local/etc/devicemonitor/devicemonitor.conf')
         self.config_file = config_file
         self.config = None
         self.running = True
@@ -104,38 +117,50 @@ class DeviceTelemetryCollector:
             password = self.config.get('general', 'MQTTPassword', fallback='')
             device_id = self.config.get('general', 'DeviceID')
 
+            logger.info(f"Preparing MQTT connection to {broker}:{port}")
+            logger.info(f"Device ID: {device_id}")
+            logger.info(f"Authentication: {'Yes' if username and password else 'No'}")
+
             # Create MQTT client
             client_id = f"opnsense-{device_id}-{int(time.time())}"
+            logger.info(f"Creating MQTT client with ID: {client_id}")
             self.mqtt_client = mqtt_client.Client(client_id)
 
             # Set authentication if provided
             if username and password:
+                logger.info("Setting MQTT authentication credentials")
                 self.mqtt_client.username_pw_set(username, password)
 
             # Set callbacks
             self.mqtt_client.on_connect = self._on_connect
             self.mqtt_client.on_disconnect = self._on_disconnect
             self.mqtt_client.on_publish = self._on_publish
+            self.mqtt_client.on_log = self._on_log
 
             # Connect to broker
-            logger.info(f"Connecting to MQTT broker {broker}:{port}")
+            logger.info(f"Attempting to connect to MQTT broker {broker}:{port}")
             self.mqtt_client.connect(broker, port, 60)
             self.mqtt_client.loop_start()
 
             # Wait for connection
+            logger.info("Waiting for MQTT connection (timeout: 10 seconds)")
             timeout = 10
             while not self.mqtt_connected and timeout > 0:
                 time.sleep(0.5)
                 timeout -= 0.5
+                if timeout % 2 == 0:  # Log every 1 second
+                    logger.debug(f"Still waiting for MQTT connection... {timeout} seconds remaining")
 
             if not self.mqtt_connected:
                 logger.error("Failed to connect to MQTT broker within timeout")
+                logger.error("Check network connectivity, broker address, port, and authentication credentials")
                 return False
 
+            logger.info("Successfully connected to MQTT broker")
             return True
 
         except Exception as e:
-            logger.error(f"Error connecting to MQTT broker: {e}")
+            logger.exception(f"Error connecting to MQTT broker: {e}")
             return False
 
     def _on_connect(self, client, userdata, flags, rc):
@@ -144,16 +169,36 @@ class DeviceTelemetryCollector:
             self.mqtt_connected = True
             logger.info("Connected to MQTT broker successfully")
         else:
-            logger.error(f"Failed to connect to MQTT broker with result code {rc}")
+            self.mqtt_connected = False
+            logger.error(f"Failed to connect to MQTT broker with result code {rc}: {self._get_rc_meaning(rc)}")
 
     def _on_disconnect(self, client, userdata, rc):
         """MQTT disconnection callback"""
         self.mqtt_connected = False
-        logger.warning(f"Disconnected from MQTT broker with result code {rc}")
+        if rc == 0:
+            logger.info("Cleanly disconnected from MQTT broker")
+        else:
+            logger.warning(f"Unexpected disconnection from MQTT broker with result code {rc}")
 
     def _on_publish(self, client, userdata, mid):
         """MQTT publish callback"""
         logger.debug(f"Message published with ID: {mid}")
+
+    def _on_log(self, client, userdata, level, buf):
+        """MQTT log callback"""
+        logger.debug(f"MQTT Client Log - Level: {level}, Message: {buf}")
+
+    def _get_rc_meaning(self, rc):
+        """Get human-readable meaning of MQTT result codes"""
+        rc_meanings = {
+            0: "Connection successful",
+            1: "Connection refused - incorrect protocol version",
+            2: "Connection refused - invalid client identifier",
+            3: "Connection refused - server unavailable",
+            4: "Connection refused - bad username or password",
+            5: "Connection refused - not authorised"
+        }
+        return rc_meanings.get(rc, f"Unknown result code: {rc}")
 
     def collect_system_metrics(self):
         """Collect system telemetry data"""
@@ -271,36 +316,40 @@ class DeviceTelemetryCollector:
             if not self.mqtt_connected:
                 logger.warning("MQTT not connected, attempting to reconnect")
                 if not self.connect_mqtt():
+                    logger.error("Failed to reconnect to MQTT broker")
                     return False
 
             topic = self.config.get('general', 'MQTTTopic')
 
             # Convert data to JSON string
             payload = json.dumps(data, default=str)
+            payload_size = len(payload)
+            logger.debug(f"Publishing telemetry to topic '{topic}' (payload size: {payload_size} bytes)")
 
             # Publish message
             result = self.mqtt_client.publish(topic, payload, qos=1)
 
             if result.rc == mqtt_client.MQTT_ERR_SUCCESS:
-                logger.debug(f"Telemetry published successfully to topic: {topic}")
+                logger.info(f"Telemetry published successfully to topic: {topic}")
                 return True
             else:
-                logger.error(f"Failed to publish telemetry: {result.rc}")
+                logger.error(f"Failed to publish telemetry with error code: {result.rc}")
                 return False
 
         except Exception as e:
-            logger.error(f"Error publishing telemetry: {e}")
+            logger.exception(f"Error publishing telemetry: {e}")
             return False
 
     def disconnect_mqtt(self):
         """Disconnect from MQTT broker"""
         if self.mqtt_client:
             try:
+                logger.info("Disconnecting from MQTT broker")
                 self.mqtt_client.loop_stop()
                 self.mqtt_client.disconnect()
-                logger.info("Disconnected from MQTT broker")
+                logger.info("Successfully disconnected from MQTT broker")
             except Exception as e:
-                logger.error(f"Error disconnecting from MQTT broker: {e}")
+                logger.exception(f"Error disconnecting from MQTT broker: {e}")
     
     def run(self):
         """Main service loop"""
