@@ -34,14 +34,14 @@ import os
 import sys
 import time
 import json
-import psutil
 import logging
 from datetime import datetime
 from configparser import ConfigParser
 
-# Add current directory to path for paho import
+# Add current directory to path for embedded library imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paho.mqtt import client as mqtt_client
+import psutil
 
 # Configure logging
 log_handlers = [logging.StreamHandler()]
