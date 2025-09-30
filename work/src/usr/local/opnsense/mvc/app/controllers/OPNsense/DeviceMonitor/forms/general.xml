@@ -1,0 +1,85 @@
+<form>
+    <field>
+        <id>devicemonitor.general.Enabled</id>
+        <label>enabled</label>
+        <type>checkbox</type>
+        <help>Enable device telemetry monitoring service</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.MQTTBroker</id>
+        <label>MQTT Broker Host</label>
+        <type>text</type>
+        <help><![CDATA[MQTT broker hostname or IP address]]></help>
+        <hint>Example: mqtt.example.com or 192.168.1.100</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.MQTTPort</id>
+        <label>MQTT Port</label>
+        <type>text</type>
+        <help><![CDATA[MQTT broker port (1883 for unencrypted, 8883 for TLS)]]></help>
+        <hint>Default is 1883</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.MQTTUsername</id>
+        <label>MQTT Username</label>
+        <type>text</type>
+        <help><![CDATA[Username for MQTT broker authentication (optional)]]></help>
+    </field>
+    <field>
+        <id>devicemonitor.general.MQTTPassword</id>
+        <label>MQTT Password</label>
+        <type>password</type>
+        <help><![CDATA[Password for MQTT broker authentication (optional)]]></help>
+    </field>
+    <field>
+        <id>devicemonitor.general.MQTTTopic</id>
+        <label>MQTT Topic</label>
+        <type>text</type>
+        <help><![CDATA[MQTT topic to publish telemetry data]]></help>
+        <hint>Example: opnsense/telemetry or devices/firewall/metrics</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.TelemetryInterval</id>
+        <label>Telemetry Interval (seconds)</label>
+        <type>text</type>
+        <help><![CDATA[How often to collect and send telemetry data]]></help>
+        <hint>Minimum 10 seconds, maximum 3600 seconds (1 hour)</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.DeviceID</id>
+        <label>Device ID</label>
+        <type>text</type>
+        <help><![CDATA[Unique identifier for this device in telemetry messages]]></help>
+        <hint>This will be included in all telemetry messages</hint>
+    </field>
+    <field>
+        <id>devicemonitor.general.CollectCPU</id>
+        <label>Collect CPU Metrics</label>
+        <type>checkbox</type>
+        <help>Include CPU usage and load metrics</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.CollectMemory</id>
+        <label>Collect Memory Metrics</label>
+        <type>checkbox</type>
+        <help>Include memory usage metrics</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.CollectNetwork</id>
+        <label>Collect Network Metrics</label>
+        <type>checkbox</type>
+        <help>Include network interface statistics</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.CollectDisk</id>
+        <label>Collect Disk Metrics</label>
+        <type>checkbox</type>
+        <help>Include disk usage and I/O metrics</help>
+    </field>
+    <field>
+        <id>devicemonitor.general.CollectTemperature</id>
+        <label>Collect Temperature Metrics</label>
+        <type>checkbox</type>
+        <help>Include system temperature sensors (if available)</help>
+    </field>
+</form>
