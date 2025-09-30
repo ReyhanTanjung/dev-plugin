@@ -1,35 +1,5 @@
 #!/usr/local/bin/python3
 
-"""
-    Copyright (c) 2015-2019 Ad Schellevis <ad@opnsense.org>
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    1. Redistributions of source code must retain the above copyright notice,
-     this list of conditions and the following disclaimer.
-
-    2. Redistributions in binary form must reproduce the above copyright
-     notice, this list of conditions and the following disclaimer in the
-     documentation and/or other materials provided with the distribution.
-
-    THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
-    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-    AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-    OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
-
-    --------------------------------------------------------------------------------------
-
-    Device telemetry collector for OPNsense - sends system metrics to remote endpoint
-"""
-
 import os
 import sys
 import time
@@ -38,15 +8,12 @@ import logging
 from datetime import datetime
 from configparser import ConfigParser
 
-# Add current directory to path for embedded library imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paho.mqtt import client as mqtt_client
 import psutil
 
-# Configure logging
 log_handlers = [logging.StreamHandler()]
 
-# Try to add file handler, with multiple fallback locations
 log_file_paths = [
     '/var/log/devicemonitor.log',
     '/tmp/devicemonitor.log',
@@ -57,12 +24,10 @@ log_file_paths = [
 log_file_used = None
 for log_path in log_file_paths:
     try:
-        # Create directory if it doesn't exist
         log_dir = os.path.dirname(log_path)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
 
-        # Test if we can write to the file
         test_handler = logging.FileHandler(log_path)
         test_handler.close()
 
@@ -80,7 +45,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Log the logging configuration
 if log_file_used:
     logger.info(f"Logging to file: {log_file_used}")
 else:
@@ -89,10 +53,8 @@ else:
 class DeviceTelemetryCollector:
     def __init__(self, config_file=None):
         if config_file is None:
-            # Allow override via environment variable for testing
             config_file = os.environ.get('DEVICEMONITOR_CONFIG', '/usr/local/etc/devicemonitor/devicemonitor.conf')
 
-            # If production config doesn't exist, fall back to test config
             if not os.path.exists(config_file) and os.path.exists('/tmp/devicemonitor_test/devicemonitor.conf'):
                 config_file = '/tmp/devicemonitor_test/devicemonitor.conf'
                 logger.warning(f"Production config not found, using fallback: {config_file}")
@@ -101,9 +63,8 @@ class DeviceTelemetryCollector:
         self.running = True
         self.mqtt_client = None
         self.mqtt_connected = False
-        
+
     def load_config(self):
-        """Load configuration from config file"""
         if not os.path.exists(self.config_file):
             logger.error(f"Configuration file not found: {self.config_file}")
             return False
@@ -115,27 +76,24 @@ class DeviceTelemetryCollector:
             if not self.config.has_section('general'):
                 logger.error("Configuration section [general] not found")
                 return False
-                
-            # Check if service is enabled
+
             if not self.config.getboolean('general', 'Enabled', fallback=False):
                 logger.info("Device monitor service is disabled")
                 return False
-                
-            # Validate required settings
+
             required_settings = ['MQTTBroker', 'MQTTPort', 'MQTTTopic', 'DeviceID']
             for setting in required_settings:
                 if not self.config.get('general', setting, fallback=''):
                     logger.error(f"Required setting '{setting}' not found in configuration")
                     return False
-                    
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error loading configuration: {e}")
             return False
-    
+
     def connect_mqtt(self):
-        """Connect to MQTT broker"""
         try:
             broker = self.config.get('general', 'MQTTBroker')
             port = self.config.getint('general', 'MQTTPort')
@@ -147,34 +105,29 @@ class DeviceTelemetryCollector:
             logger.info(f"Device ID: {device_id}")
             logger.info(f"Authentication: {'Yes' if username and password else 'No'}")
 
-            # Create MQTT client
             client_id = f"opnsense-{device_id}-{int(time.time())}"
             logger.info(f"Creating MQTT client with ID: {client_id}")
             self.mqtt_client = mqtt_client.Client(client_id)
 
-            # Set authentication if provided
             if username and password:
                 logger.info("Setting MQTT authentication credentials")
                 self.mqtt_client.username_pw_set(username, password)
 
-            # Set callbacks
             self.mqtt_client.on_connect = self._on_connect
             self.mqtt_client.on_disconnect = self._on_disconnect
             self.mqtt_client.on_publish = self._on_publish
             self.mqtt_client.on_log = self._on_log
 
-            # Connect to broker
             logger.info(f"Attempting to connect to MQTT broker {broker}:{port}")
             self.mqtt_client.connect(broker, port, 60)
             self.mqtt_client.loop_start()
 
-            # Wait for connection
             logger.info("Waiting for MQTT connection (timeout: 10 seconds)")
             timeout = 10
             while not self.mqtt_connected and timeout > 0:
                 time.sleep(0.5)
                 timeout -= 0.5
-                if timeout % 2 == 0:  # Log every 1 second
+                if timeout % 2 == 0:
                     logger.debug(f"Still waiting for MQTT connection... {timeout} seconds remaining")
 
             if not self.mqtt_connected:
@@ -190,7 +143,6 @@ class DeviceTelemetryCollector:
             return False
 
     def _on_connect(self, client, userdata, flags, rc):
-        """MQTT connection callback"""
         if rc == 0:
             self.mqtt_connected = True
             logger.info("Connected to MQTT broker successfully")
@@ -199,7 +151,6 @@ class DeviceTelemetryCollector:
             logger.error(f"Failed to connect to MQTT broker with result code {rc}: {self._get_rc_meaning(rc)}")
 
     def _on_disconnect(self, client, userdata, rc):
-        """MQTT disconnection callback"""
         self.mqtt_connected = False
         if rc == 0:
             logger.info("Cleanly disconnected from MQTT broker")
@@ -207,15 +158,12 @@ class DeviceTelemetryCollector:
             logger.warning(f"Unexpected disconnection from MQTT broker with result code {rc}")
 
     def _on_publish(self, client, userdata, mid):
-        """MQTT publish callback"""
         logger.debug(f"Message published with ID: {mid}")
 
     def _on_log(self, client, userdata, level, buf):
-        """MQTT log callback"""
         logger.debug(f"MQTT Client Log - Level: {level}, Message: {buf}")
 
     def _get_rc_meaning(self, rc):
-        """Get human-readable meaning of MQTT result codes"""
         rc_meanings = {
             0: "Connection successful",
             1: "Connection refused - incorrect protocol version",
@@ -227,20 +175,17 @@ class DeviceTelemetryCollector:
         return rc_meanings.get(rc, f"Unknown result code: {rc}")
 
     def collect_system_metrics(self):
-        """Collect system telemetry data"""
         logger.info("Starting comprehensive system metrics collection cycle")
         start_time = time.time()
         try:
             metrics = {}
 
-            # Check which metrics to collect based on configuration
             collect_cpu = self.config.getboolean('general', 'CollectCPU', fallback=True)
             collect_memory = self.config.getboolean('general', 'CollectMemory', fallback=True)
             collect_network = self.config.getboolean('general', 'CollectNetwork', fallback=True)
             collect_disk = self.config.getboolean('general', 'CollectDisk', fallback=True)
             collect_temperature = self.config.getboolean('general', 'CollectTemperature', fallback=False)
 
-            # Basic system info
             logger.debug("Starting system metrics collection")
             try:
                 logger.debug("Collecting system boot time and uptime")
@@ -256,7 +201,6 @@ class DeviceTelemetryCollector:
                 process_count = len(psutil.pids())
                 logger.debug(f"Total processes: {process_count}")
 
-                # Additional system information
                 logger.debug("Collecting additional system information")
                 users = psutil.users()
                 logger.debug(f"Active users: {len(users)}")
@@ -279,7 +223,6 @@ class DeviceTelemetryCollector:
                 logger.exception("System metrics collection failed")
                 metrics["system"] = {"error": str(e)}
 
-            # CPU metrics
             if collect_cpu:
                 logger.debug("Starting CPU metrics collection")
                 try:
@@ -298,7 +241,6 @@ class DeviceTelemetryCollector:
                     else:
                         logger.debug("CPU frequency information not available")
 
-                    # Collect per-core CPU usage
                     logger.debug("Collecting per-core CPU usage")
                     cpu_per_core = psutil.cpu_percent(percpu=True)
                     logger.debug(f"Per-core CPU usage: {cpu_per_core}")
@@ -316,7 +258,6 @@ class DeviceTelemetryCollector:
                     logger.exception("CPU metrics collection failed")
                     metrics["cpu"] = {"error": str(e)}
 
-            # Memory metrics
             if collect_memory:
                 logger.debug("Starting memory metrics collection")
                 try:
@@ -349,7 +290,6 @@ class DeviceTelemetryCollector:
                     logger.exception("Memory metrics collection failed")
                     metrics["memory"] = {"error": str(e)}
 
-            # Disk metrics
             if collect_disk:
                 logger.debug("Starting disk metrics collection")
                 try:
@@ -369,7 +309,6 @@ class DeviceTelemetryCollector:
                     else:
                         logger.debug("Disk I/O counters not available")
 
-                    # Collect per-disk usage for all mounted filesystems
                     logger.debug("Collecting per-disk usage for all mounted filesystems")
                     disk_partitions = psutil.disk_partitions()
                     per_disk_usage = {}
@@ -409,7 +348,6 @@ class DeviceTelemetryCollector:
                     logger.exception("Disk metrics collection failed")
                     metrics["disk"] = {"error": str(e)}
 
-            # Network metrics
             if collect_network:
                 logger.debug("Starting network metrics collection")
                 try:
@@ -421,7 +359,6 @@ class DeviceTelemetryCollector:
                     logger.debug(f"Network errors: errin={net_io.errin}, errout={net_io.errout}, "
                                f"dropin={net_io.dropin}, dropout={net_io.dropout}")
 
-                    # Collect per-interface statistics
                     logger.debug("Collecting per-interface network statistics")
                     net_io_per_nic = psutil.net_io_counters(pernic=True)
                     per_interface_stats = {}
@@ -442,7 +379,6 @@ class DeviceTelemetryCollector:
                             logger.debug(f"Interface {interface}: sent={stats.bytes_sent/1024/1024:.2f}MB, "
                                        f"recv={stats.bytes_recv/1024/1024:.2f}MB")
 
-                    # Collect network interface addresses
                     logger.debug("Collecting network interface addresses")
                     net_addresses = psutil.net_if_addrs()
                     interface_addresses = {}
@@ -476,7 +412,6 @@ class DeviceTelemetryCollector:
                     logger.exception("Network metrics collection failed")
                     metrics["network"] = {"error": str(e)}
 
-            # Temperature metrics (if enabled and available)
             if collect_temperature:
                 logger.debug("Starting temperature metrics collection")
                 temperature_data = {}
@@ -514,7 +449,6 @@ class DeviceTelemetryCollector:
                     logger.exception("Temperature metrics collection failed")
                     metrics["temperature"] = {"error": str(e)}
 
-            # Construct final telemetry payload
             collection_time = time.time() - start_time
             logger.debug(f"Metrics collection completed in {collection_time:.3f} seconds")
 
@@ -532,7 +466,6 @@ class DeviceTelemetryCollector:
                 **metrics
             }
 
-            # Calculate payload size for logging
             payload_preview = json.dumps(telemetry_data, default=str)
             payload_size = len(payload_preview)
 
@@ -546,9 +479,8 @@ class DeviceTelemetryCollector:
             logger.error(f"Error collecting system metrics after {collection_time:.3f}s: {e}")
             logger.exception("System metrics collection failed")
             return None
-    
+
     def publish_telemetry(self, data):
-        """Publish telemetry data to MQTT broker"""
         try:
             if not self.mqtt_connected:
                 logger.warning("MQTT not connected, attempting to reconnect")
@@ -558,12 +490,10 @@ class DeviceTelemetryCollector:
 
             topic = self.config.get('general', 'MQTTTopic')
 
-            # Convert data to JSON string
             payload = json.dumps(data, default=str)
             payload_size = len(payload)
             logger.debug(f"Publishing telemetry to topic '{topic}' (payload size: {payload_size} bytes)")
 
-            # Publish message
             result = self.mqtt_client.publish(topic, payload, qos=1)
 
             if result.rc == mqtt_client.MQTT_ERR_SUCCESS:
@@ -578,7 +508,6 @@ class DeviceTelemetryCollector:
             return False
 
     def disconnect_mqtt(self):
-        """Disconnect from MQTT broker"""
         if self.mqtt_client:
             try:
                 logger.info("Disconnecting from MQTT broker")
@@ -587,23 +516,20 @@ class DeviceTelemetryCollector:
                 logger.info("Successfully disconnected from MQTT broker")
             except Exception as e:
                 logger.exception(f"Error disconnecting from MQTT broker: {e}")
-    
+
     def run(self):
-        """Main service loop"""
         logger.info("=== Starting Device Telemetry Collector with MQTT ===")
         logger.info(f"Python version: {sys.version}")
         logger.info(f"Process PID: {os.getpid()}")
         logger.info(f"Working directory: {os.getcwd()}")
         logger.info(f"Configuration file: {self.config_file}")
 
-        # Load configuration
         logger.info("Loading configuration...")
         if not self.load_config():
             logger.error("Failed to load configuration, exiting")
             sys.exit(1)
         logger.info("Configuration loaded successfully")
 
-        # Connect to MQTT broker
         logger.info("Establishing MQTT connection...")
         if not self.connect_mqtt():
             logger.error("Failed to connect to MQTT broker, exiting")
@@ -613,7 +539,6 @@ class DeviceTelemetryCollector:
         interval = self.config.getint('general', 'TelemetryInterval', fallback=60)
         logger.info(f"Telemetry collection interval: {interval} seconds")
 
-        # Log what metrics will be collected
         enabled_metrics = []
         if self.config.getboolean('general', 'CollectCPU', fallback=True):
             enabled_metrics.append('CPU')
@@ -637,12 +562,10 @@ class DeviceTelemetryCollector:
                 logger.debug(f"=== Starting telemetry collection cycle #{cycle_count} ===")
 
                 try:
-                    # Collect system metrics
                     logger.debug("Initiating system metrics collection")
                     telemetry_data = self.collect_system_metrics()
 
                     if telemetry_data:
-                        # Publish to MQTT broker
                         logger.debug("Initiating telemetry data publication")
                         success = self.publish_telemetry(telemetry_data)
                         if success:
@@ -653,7 +576,6 @@ class DeviceTelemetryCollector:
                     else:
                         logger.error(f"Telemetry cycle #{cycle_count} - failed to collect system metrics")
 
-                    # Wait for next interval
                     logger.debug(f"Waiting {interval} seconds until next collection cycle")
                     time.sleep(interval)
 
@@ -668,7 +590,6 @@ class DeviceTelemetryCollector:
                     time.sleep(interval)
 
         finally:
-            # Clean shutdown
             logger.info(f"=== Initiating clean shutdown after {cycle_count} collection cycles ===")
             self.disconnect_mqtt()
             logger.info("=== Device Telemetry Collector stopped gracefully ===")

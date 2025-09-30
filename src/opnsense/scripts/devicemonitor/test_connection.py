@@ -1,35 +1,5 @@
 #!/usr/local/bin/python3
 
-"""
-    Copyright (c) 2015-2019 Ad Schellevis <ad@opnsense.org>
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    1. Redistributions of source code must retain the above copyright notice,
-     this list of conditions and the following disclaimer.
-
-    2. Redistributions in binary form must reproduce the above copyright
-     notice, this list of conditions and the following disclaimer in the
-     documentation and/or other materials provided with the distribution.
-
-    THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
-    INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
-    AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-    OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-    SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-    INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-    CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-    ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
-
-    --------------------------------------------------------------------------------------
-
-    Test connection to the MQTT broker for telemetry
-"""
-
 import os
 import sys
 import json
@@ -38,24 +8,20 @@ import logging
 from datetime import datetime
 from configparser import ConfigParser
 
-# Add current directory to path for paho import
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from paho.mqtt import client as mqtt_client
 
-# Configure logging for test connection
 log_handlers = [logging.StreamHandler()]
 
-# Try to add file handler, but continue if we don't have permissions
 try:
     log_handlers.append(logging.FileHandler('/var/log/devicemonitor_test.log'))
 except PermissionError:
     try:
-        # Try user's home directory instead
         import os
         log_file = os.path.expanduser('~/devicemonitor_test.log')
         log_handlers.append(logging.FileHandler(log_file))
     except:
-        pass  # Continue with just console logging
+        pass
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -67,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 device_monitor_config = '/usr/local/etc/devicemonitor/devicemonitor.conf'
 
-# For testing purposes, allow override via environment variable
 import os
 if 'DEVICEMONITOR_CONFIG' in os.environ:
     device_monitor_config = os.environ['DEVICEMONITOR_CONFIG']
@@ -94,7 +59,6 @@ class MQTTConnectionTester:
         logger.debug(f"MQTT Client Log - Level: {level}, Message: {buf}")
 
     def _get_rc_meaning(self, rc):
-        """Get human-readable meaning of MQTT result codes"""
         rc_meanings = {
             0: "Connection successful",
             1: "Connection refused - incorrect protocol version",
@@ -114,7 +78,6 @@ class MQTTConnectionTester:
             logger.info(f"Device ID: {device_id}")
             logger.info(f"Authentication: {'Yes' if username and password else 'No'}")
 
-            # Network connectivity check
             logger.debug(f"Testing basic network connectivity to {broker}")
             import socket
             try:
@@ -129,7 +92,6 @@ class MQTTConnectionTester:
             except Exception as e:
                 logger.warning(f"Network connectivity test failed: {e}")
 
-            # Create test payload
             test_data = {
                 "timestamp": datetime.utcnow().isoformat() + 'Z',
                 "device_id": device_id,
@@ -137,33 +99,28 @@ class MQTTConnectionTester:
                 "message": "MQTT connection test from OPNsense Device Monitor"
             }
 
-            # Create MQTT client
             client_id = f"opnsense-test-{device_id}-{int(time.time())}"
             logger.info(f"Creating MQTT client with ID: {client_id}")
             client = mqtt_client.Client(client_id)
 
-            # Set authentication if provided
             if username and password:
                 logger.info("Setting MQTT authentication credentials")
                 client.username_pw_set(username, password)
 
-            # Set callbacks
             client.on_connect = self.on_connect
             client.on_publish = self.on_publish
             client.on_log = self.on_log
 
-            # Connect to broker
             logger.info(f"Attempting to connect to MQTT broker at {broker}:{port}")
             client.connect(broker, port, 60)
             client.loop_start()
 
-            # Wait for connection (max 10 seconds)
             logger.info("Waiting for MQTT connection (timeout: 10 seconds)")
             timeout = 10
             while not self.connected and timeout > 0 and not self.error_message:
                 time.sleep(0.5)
                 timeout -= 0.5
-                if timeout % 2 == 0:  # Log every 1 second
+                if timeout % 2 == 0:
                     logger.debug(f"Still waiting for connection... {timeout} seconds remaining")
 
             if not self.connected:
@@ -174,14 +131,12 @@ class MQTTConnectionTester:
                     logger.error("Connection timeout - unable to connect to MQTT broker")
                     return {"success": False, "message": "Connection timeout - unable to connect to MQTT broker"}
 
-            # Publish test message
             logger.info(f"Publishing test message to topic: {topic}")
             payload = json.dumps(test_data, default=str)
             logger.debug(f"Test payload: {payload}")
             result = client.publish(topic, payload, qos=1)
             logger.info(f"Publish result code: {result.rc}")
 
-            # Wait for publish confirmation
             logger.info("Waiting for publish confirmation (timeout: 5 seconds)")
             timeout = 5
             while not self.published and timeout > 0:
@@ -241,12 +196,10 @@ if os.path.exists(device_monitor_config):
     if cnf.has_section('general'):
         logger.info("Configuration section [general] found")
 
-        # Log all available configuration keys (without values for security)
         available_keys = list(cnf['general'].keys())
         logger.debug(f"Available configuration keys: {available_keys}")
 
         try:
-            # Get configuration values
             logger.debug("Reading MQTT broker configuration...")
             broker = cnf.get('general', 'MQTTBroker')
             port = cnf.getint('general', 'MQTTPort', fallback=1883)
@@ -259,7 +212,6 @@ if os.path.exists(device_monitor_config):
             logger.debug(f"Broker: {broker}, Port: {port}, Topic: {topic}, Device ID: {device_id}")
             logger.debug(f"Authentication configured: {'Yes' if username and password else 'No'}")
 
-            # Test MQTT connection
             logger.info("Initializing MQTT connection tester...")
             tester = MQTTConnectionTester()
 
@@ -298,7 +250,6 @@ else:
     result['message'] = error_msg
     result['status'] = 'error'
 
-# Add timestamp to final result
 result['test_timestamp'] = datetime.utcnow().isoformat() + 'Z'
 result['test_completed_at'] = datetime.now().isoformat()
 
